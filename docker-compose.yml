@@ -1,0 +1,64 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: ccps_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ccps
+      MYSQL_USER: ccps_user
+      MYSQL_PASSWORD: ${DB_PASSWORD:-ccps_pass}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root_pass}
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${DB_ROOT_PASSWORD:-root_pass}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  django:
+    build: ./django_backend
+    container_name: ccps_django
+    restart: unless-stopped
+    environment:
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-change-me-django}
+      JWT_SIGNING_KEY: ${JWT_SIGNING_KEY:-change-me-shared-jwt-key}
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,django
+      DB_ENGINE: mysql
+      DB_NAME: ccps
+      DB_USER: ccps_user
+      DB_PASSWORD: ${DB_PASSWORD:-ccps_pass}
+      DB_HOST: mysql
+      DB_PORT: "3306"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+  fastapi:
+    build: ./fastapi_service
+    container_name: ccps_fastapi
+    restart: unless-stopped
+    environment:
+      JWT_SIGNING_KEY: ${JWT_SIGNING_KEY:-change-me-shared-jwt-key}
+      DATABASE_URL: mysql+pymysql://ccps_user:${DB_PASSWORD:-ccps_pass}@mysql:3306/ccps
+      PAYMENT_SUCCESS_RATE: "0.8"
+    depends_on:
+      - django   # Django runs the migrations that create the tables
+    ports:
+      - "8001:8001"
+
+  # Uncomment once the React app has a Dockerfile in ./frontend
+  # frontend:
+  #   build: ./frontend
+  #   container_name: ccps_frontend
+  #   ports:
+  #     - "5173:80"
+  #   depends_on: [django, fastapi]
+
+volumes:
+  mysql_data:
