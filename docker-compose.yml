@@ -39,14 +39,12 @@ services:
     ports:
       - "8000:8000"
 
-  fastapi:
+   fastapi:
     build: ./fastapi_service
-    container_name: ccps_fastapi
-    restart: unless-stopped
+    env_file: ./fastapi_service/.env
     environment:
-      JWT_SIGNING_KEY: ${JWT_SIGNING_KEY:-change-me-shared-jwt-key}
-      DATABASE_URL: mysql+pymysql://ccps_user:${DB_PASSWORD:-ccps_pass}@mysql:3306/ccps
-      PAYMENT_SUCCESS_RATE: "0.8"
+      DATABASE_URL: mysql+pymysql://ccps_user:ccps_pass@db:3306/ccps
+    ports: ["8001:8001"]
     depends_on:
       - django   # Django runs the migrations that create the tables
     ports:
